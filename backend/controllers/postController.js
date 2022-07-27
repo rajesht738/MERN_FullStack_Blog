@@ -3,6 +3,7 @@ const FeaturedPost = require('../modals/featuredPost');
 const cloudinary = require('../cloud');
 const { isValidObjectId } = require('mongoose');
 const featuredPost = require('../modals/featuredPost');
+const { post } = require('../routes/postRouter');
 const FEATURED_POST_COUNT = 4;
 const addToFeaturedPost = async (postId) => {
 
@@ -137,19 +138,19 @@ exports.deletePost = async (req, res) => {
 }
 
 exports.getPost = async (req, res) => {
-    const { postId } = req.params;
+    const { slug } = req.params;
 
-    if (!isValidObjectId(postId)) {
+    if (!slug) {
         return res.status(401).json({ error: "Invalid request!" });
     }
 
-    const post = await Post.findById(postId);
+    const post = await Post.findOne({ slug });
 
     if (!post) {
         return res.status(404).json({ error: "Post not found!" });
     }
     const featured = await isFeaturedPost(post._id);
-    const { title, content, meta, tags, slug, author } = post;
+    const { title, content, meta, tags, author } = post;
     res.json({
         post: {
             id: post._id,
@@ -165,28 +166,51 @@ exports.getPost = async (req, res) => {
     });
 }
 exports.getPosts = async (req, res) => {
-   const {pageNo = 0, limit= 0} = req.query;
+    const { pageNo = 0, limit = 0 } = req.query;
 
-   const posts = await Post.find({}).sort({createdAt: -1})
-   .skip(parseInt(pageNo) * parseInt(limit))
-   .limit(parseInt(limit));
+    const posts = await Post.find({}).sort({ createdAt: -1 })
+        .skip(parseInt(pageNo) * parseInt(limit))
+        .limit(parseInt(limit));
 
-   res.json({
-    posts: posts.map((post) => ({
-           
-        id: post._id,
-        title: post.title,
-        meta: post.meta,
-        slug: post.slug,
-        thumbnail: post.thumbnail?.url,
-        author: post.author,
-        content: post.content,
-        tags: post.tags,
-        
-    
-}))
-});
-   
+    res.json({
+        posts: posts.map((post) => ({
+
+            id: post._id,
+            title: post.title,
+            meta: post.meta,
+            slug: post.slug,
+            thumbnail: post.thumbnail?.url,
+            author: post.author,
+            content: post.content,
+            tags: post.tags,
+
+
+        }))
+    });
+
+}
+exports.searchPost = async (req, res) => {
+    const { title } = req.query;
+    if (!title.trim())
+        return res.status(401).json({ error: "Search query is missing!" })
+    const posts = await Post.find({ title: { $regex: title, $options: "i" } });
+
+    res.json({
+        posts: posts.map((post) => ({
+
+            id: post._id,
+            title: post.title,
+            meta: post.meta,
+            slug: post.slug,
+            thumbnail: post.thumbnail?.url,
+            author: post.author,
+            content: post.content,
+            tags: post.tags,
+
+
+        }))
+    });
+
 }
 exports.getFeaturedPosts = async (req, res) => {
     const featuredPosts = await FeaturedPost.find({}).sort({ createdAt: -1 })
@@ -194,20 +218,60 @@ exports.getFeaturedPosts = async (req, res) => {
         .populate("post");
 
     res.json({
-        post: featuredPosts.map(({post}) => ({
-           
-                id: post._id,
-                title: post.title,
-                meta: post.meta,
-                slug: post.slug,
-                thumbnail: post.thumbnail?.url,
-                author: post.author,
-                content: post.content,
-                tags: post.tags,
-                featured: post.featured,
-            
+        post: featuredPosts.map(({ post }) => ({
+
+            id: post._id,
+            title: post.title,
+            meta: post.meta,
+            slug: post.slug,
+            thumbnail: post.thumbnail?.url,
+            author: post.author,
+            content: post.content,
+            tags: post.tags,
+            featured: post.featured,
+
         }))
     });
 
 }
 
+exports.getRelatedPosts = async (req, res) => {
+
+    const { postId } = req.params;
+    if (!isValidObjectId(postId))
+        return res.status(401).json({ error: "Invalid Request!" })
+    const post = await Post.findById(postId);
+    if (!post)
+        return res.status(404).json({ error: "Post not found!" });
+
+    const relatedPosts = await Post.find({
+        tags: { $in: [...post.tags] },
+        _id: { $ne: post._id },
+    }).sort({ createdAt: -1 }).limit(5);
+
+
+
+    res.json({
+        posts: relatedPosts.map((post) => ({
+            id: post._id,
+            title: post.title,
+            meta: post.meta,
+            slug: post.slug,
+            thumbnail: post.thumbnail?.url,
+            author: post.author,
+            content: post.content,
+            tags: post.tags,
+
+
+        }))
+    });
+
+}
+
+exports.uploadImage = async (req, res) => {
+    const {file} = req;
+if(!file) return res.status(401).json({error: "Image file is missing!"});
+
+const {secure_url: url} = await cloudinary.uploader.upload(file.path);
+res.status(201).json({image: url})
+}
