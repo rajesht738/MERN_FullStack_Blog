@@ -172,6 +172,7 @@ exports.getPosts = async (req, res) => {
         .skip(parseInt(pageNo) * parseInt(limit))
         .limit(parseInt(limit));
 
+    const postCount = await Post.countDocuments();
     res.json({
         posts: posts.map((post) => ({
 
@@ -183,9 +184,9 @@ exports.getPosts = async (req, res) => {
             author: post.author,
             content: post.content,
             tags: post.tags,
-
-
-        }))
+            createdAt: post.createdAt,
+        })),
+        postCount,
     });
 
 }
@@ -206,6 +207,7 @@ exports.searchPost = async (req, res) => {
             author: post.author,
             content: post.content,
             tags: post.tags,
+            createdAt: post.createdAt,
 
 
         }))
@@ -269,9 +271,9 @@ exports.getRelatedPosts = async (req, res) => {
 }
 
 exports.uploadImage = async (req, res) => {
-    const {file} = req;
-if(!file) return res.status(401).json({error: "Image file is missing!"});
+    const { file } = req;
+    if (!file) return res.status(401).json({ error: "Image file is missing!" });
 
-const {secure_url: url} = await cloudinary.uploader.upload(file.path);
-res.status(201).json({image: url})
+    const { secure_url: url } = await cloudinary.uploader.upload(file.path);
+    res.status(201).json({ image: url })
 }
