@@ -27,5 +27,5 @@ export default function SearchProvider({children}) {
   )
 }
 
-
+// custome hooks to use it at any of component by  using useSearch
 export const useSearch = () => useContext(SearchConext);
